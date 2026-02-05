@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ALL_COLORS, BASE_COLORS, COLORS, GAME_CONFIG, SCREEN_HEIGHT } from '../constants/GameConfig';
+import { useGameLoop } from '../hooks/useGameLoop';
 import { ColorPaddle } from './ColorPaddle';
 import { FallingBall } from './FallingBall';
-import { useGameLoop } from '../hooks/useGameLoop';
-import { COLORS, COLOR_ARRAY, GAME_CONFIG, SCREEN_HEIGHT } from '../constants/GameConfig';
 
 export const GameScreen = () => {
     const { isPlaying, isGameOver, score, gameSpeed, startGame, endGame, incrementScore } = useGameLoop();
-    const [paddleRotation, setPaddleRotation] = useState(0); // 0, 1, 2
+    const [paddleRotation, setPaddleRotation] = useState(0); // 0, 1, 2, ...
     const [balls, setBalls] = useState<{ id: string; color: string; speed: number }[]>([]);
 
-    // Refs for interval management to avoid closure staleness if not careful, 
-    // though strict dependency arrays should handle it.
+    // Track score/mode in ref for interval closure
+    const scoreRef = useRef(score);
+    useEffect(() => { scoreRef.current = score; }, [score]);
 
     // Handle Rotation Tap
     const handleTap = () => {
@@ -20,15 +21,25 @@ export const GameScreen = () => {
     };
 
     // Determine active color at top based on rotation
-    // Rotation 0: Red (Top is Red)
-    // Rotation 1 (CW): Blue (Top is Blue)
-    // Rotation 2 (CW): Green (Top is Green)
-    // Cycle: R -> B -> G
     const getActiveColor = (rot: number) => {
-        const index = rot % 3;
-        if (index === 0) return COLORS.RED;
-        if (index === 1) return COLORS.BLUE;
-        return COLORS.GREEN;
+        const isHard = scoreRef.current >= 20;
+
+        if (isHard) {
+            // Hard Mode (4 Segments): Red, Blue, Green, Yellow (CW on Paddle)
+            // Top Color Sequence (as paddle rotates CW): Red -> Yellow -> Green -> Blue
+            const index = rot % 4;
+            if (index === 0) return COLORS.RED;
+            if (index === 1) return COLORS.YELLOW;
+            if (index === 2) return COLORS.GREEN;
+            return COLORS.BLUE;
+        } else {
+            // Normal Mode (3 Segments): Red, Blue, Green (CW on Paddle)
+            // Top Color Sequence: Red -> Blue -> Green
+            const index = rot % 3;
+            if (index === 0) return COLORS.RED;
+            if (index === 1) return COLORS.BLUE;
+            return COLORS.GREEN;
+        }
     };
 
     // Spawning Logic
@@ -41,7 +52,10 @@ export const GameScreen = () => {
         const intervalMs = GAME_CONFIG.SPAWN_INTERVAL / Math.sqrt(gameSpeed); // Spawn faster as speed increases
 
         const spawner = setInterval(() => {
-            const randomColor = COLOR_ARRAY[Math.floor(Math.random() * COLOR_ARRAY.length)];
+            const isHard = scoreRef.current >= 20;
+            const currentPool = isHard ? ALL_COLORS : BASE_COLORS;
+            const randomColor = currentPool[Math.floor(Math.random() * currentPool.length)];
+
             const newBall = {
                 id: Date.now().toString() + Math.random(),
                 color: randomColor,
@@ -51,38 +65,17 @@ export const GameScreen = () => {
         }, intervalMs);
 
         return () => clearInterval(spawner);
-    }, [isPlaying, gameSpeed]);
+    }, [isPlaying, gameSpeed]); // Intentionally omitting score to avoid interval reset jitter
 
-    // Collision Callback (Called by FallingBall when it hits target Y)
-    const handleBallHit = useCallback((id: string, color: string) => {
-        // Remove ball
-        setBalls(prev => prev.filter(b => b.id !== id));
-
-        // Check Match
-        // We use a ref or functional update to access current rotation? 
-        // Actually, since this callback is created once? No, useCallback dependencies.
-        // Needs access to current 'paddleRotation'.
-
-        // ISSUE: If we depend on paddleRotation, this callback changes every tap.
-        // Passes new callback to existing balls? FallingBall memoization might miss it 
-        // if not careful, but React re-renders FallingBall with new prop. 
-        // Reanimated `runOnJS` calls the function passed. It should claim the latest closure.
-
-        // BETTER: Use a ref for current rotation to avoid re-creating callback constantly
-        // or just accept re-renders. FallingBall is simple.
-
-        // Let's use the 'current' rotation from state accessor if possible, 
-        // but here we are in a closure. 
-        // Strategy: Use a Ref to track rotation for the callback.
-    }, []);
-
-    // Ref strategy for rotation to keep callback stable-ish or working correctly
+    // Ref strategy for rotation to keep callback stable-ish
     const rotationRef = useRef(paddleRotation);
     useEffect(() => { rotationRef.current = paddleRotation; }, [paddleRotation]);
 
     const onBallHit = (id: string, color: string) => {
-        if (!isPlaying) return; // Ignore if game ended already
+        if (!isPlaying) return;
 
+        // Note: getActiveColor uses scoreRef.current, which is synced.
+        // rotationRef.current is also synced.
         const activeColor = getActiveColor(rotationRef.current);
 
         if (activeColor === color) {
@@ -91,9 +84,10 @@ export const GameScreen = () => {
             endGame();
         }
 
-        // Remove ball (UI cleanup)
         setBalls(prev => prev.filter(b => b.id !== id));
     };
+
+    const isHardMode = score >= 20;
 
     return (
         <TouchableOpacity activeOpacity={1} style={styles.container} onPress={handleTap}>
@@ -104,7 +98,7 @@ export const GameScreen = () => {
 
             {/* Paddle Area */}
             <View style={[styles.paddleContainer, { top: GAME_CONFIG.PADDLE_Y_POS - GAME_CONFIG.PADDLE_SIZE / 2 }]}>
-                <ColorPaddle rotation={paddleRotation} />
+                <ColorPaddle rotation={paddleRotation} mode={isHardMode ? 'hard' : 'normal'} />
             </View>
 
             {/* Balls */}
