@@ -21,9 +21,10 @@ interface FallingBallProps {
     paused?: boolean;
     isLevel3?: boolean;
     paddleY: number;
+    isGhost?: boolean;
 }
 
-export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, origin = 'top', onHit, gameHeight, paused, isLevel3, paddleY }) => {
+export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, origin = 'top', onHit, gameHeight, paused, isLevel3, paddleY, isGhost }) => {
     // Initial position depends on origin
     const startPos = origin === 'top' ? -GAME_CONFIG.BALL_SIZE : gameHeight;
     const translateY = useSharedValue(startPos);
@@ -31,6 +32,38 @@ export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, orig
     // Level 3 Logic
     const [currentBallColor, setCurrentBallColor] = React.useState(color);
     const hasSwitchedColor = useSharedValue(false);
+
+    // Level 5 Logic (Ghost Effect)
+    // Opacity: 1 -> 0 (at 30%) -> 0 (at 80%) -> 1
+    // We can drive this off translateY.
+
+    // Derived value for opacity
+    const opacityStyle = useAnimatedStyle(() => {
+        if (!isGhost) return { opacity: 1 };
+
+        const currentVal = translateY.value;
+        // Assume Origin TOP for now (Level 5 restricts to TOP)
+        // Start: -20, End: ~600. Total Dist ~620.
+        // 30%: start + 0.3 * total
+        // 80%: start + 0.8 * total
+
+        let targetDistance = paddleY - (GAME_CONFIG.PADDLE_SIZE / 2) - GAME_CONFIG.BALL_SIZE;
+        let start = -GAME_CONFIG.BALL_SIZE;
+
+        // Handle bottom origin just in case
+        if (origin === 'bottom') {
+            targetDistance = paddleY + (GAME_CONFIG.PADDLE_SIZE / 2);
+            start = gameHeight;
+        }
+
+        const totalDist = Math.abs(targetDistance - start);
+        const currentDist = Math.abs(currentVal - start);
+        const progress = currentDist / totalDist; // 0 to 1
+
+        if (progress < 0.3) return { opacity: 1 };
+        if (progress > 0.8) return { opacity: 1 };
+        return { opacity: 0 }; // Invisible in the middle 50%
+    });
 
     useAnimatedReaction(
         () => translateY.value,
@@ -45,6 +78,7 @@ export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, orig
                 const totalDist = Math.abs(end - start);
                 const currentDist = Math.abs(currentValue - start);
 
+                // Switch at 75%
                 if (currentDist >= totalDist * 0.25) {
                     hasSwitchedColor.value = true;
                     runOnJS(handleColorSwitch)();
@@ -118,7 +152,8 @@ export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, orig
             style={[
                 styles.ball,
                 { backgroundColor: currentBallColor, width: GAME_CONFIG.BALL_SIZE, height: GAME_CONFIG.BALL_SIZE, borderRadius: GAME_CONFIG.BALL_SIZE / 2 },
-                animatedStyle
+                animatedStyle,
+                opacityStyle // Apply ghost effect
             ]}
         />
     );

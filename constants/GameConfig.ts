@@ -14,6 +14,7 @@ export const LEVEL_THRESHOLDS = {
     LEVEL_2: DEBUG_ENABLED ? 2 : 20,
     LEVEL_3: DEBUG_ENABLED ? 4 : 50,
     LEVEL_4: DEBUG_ENABLED ? 5 : 70,
+    LEVEL_5: DEBUG_ENABLED ? 7 : 100,
 };
 
 export const GAME_CONFIG = {

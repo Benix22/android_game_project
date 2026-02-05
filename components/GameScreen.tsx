@@ -14,8 +14,32 @@ export const GameScreen = () => {
     const [balls, setBalls] = useState<{ id: string; color: string; speed: number; origin: 'top' | 'bottom' }[]>([]);
 
     const isHardMode = score >= LEVEL_THRESHOLDS.LEVEL_2;
-    const isLevel4 = score >= LEVEL_THRESHOLDS.LEVEL_4;
-    const paddleY = isLevel4 ? SCREEN_HEIGHT / 2 : GAME_CONFIG.PADDLE_Y_POS;
+    const isLevel4 = score >= (LEVEL_THRESHOLDS.LEVEL_4 || 70);
+    const isLevel5 = score >= (LEVEL_THRESHOLDS.LEVEL_5 || 100);
+
+    // Paddle Position: Level 4 moves to center, but Level 5 returns to bottom
+    const paddleY = (isLevel4 && !isLevel5) ? SCREEN_HEIGHT / 2 : GAME_CONFIG.PADDLE_Y_POS;
+
+    // ... (logic continues)
+
+    // In Spawner:
+    // const origin = (isLevel4 && !isLevel5) ? ...
+
+    // Use multiple chunks or replace relevant sections.
+    // I will replace the component body parts.
+
+
+    // Let's replace line 17-18 and Spawner and Render
+    // But replace_file_content is better for contiguous blocks.
+
+    // Chunk 1: Variables
+    // Chunk 2: Banner Logic
+    // Chunk 3: Spawner
+    // Chunk 4: Render
+
+    // Actually, I'll do this in multiple steps to be safe or use multi_replace.
+    // I'll use multi_replace.
+
 
     // Track score/mode in ref for interval closure
     const scoreRef = useRef(score);
@@ -48,6 +72,16 @@ export const GameScreen = () => {
             setIsPaused(true);
             setBalls([]);
             setLevelText("LEVEL 4");
+            const timer = setTimeout(() => {
+                setIsPaused(false);
+                setLevelText(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+        if (score === LEVEL_THRESHOLDS.LEVEL_5) {
+            setIsPaused(true);
+            setBalls([]);
+            setLevelText("LEVEL 5"); // Ghost Mode
             const timer = setTimeout(() => {
                 setIsPaused(false);
                 setLevelText(null);
@@ -111,8 +145,9 @@ export const GameScreen = () => {
             const currentPool = isHard ? ALL_COLORS : BASE_COLORS;
             const randomColor = currentPool[Math.floor(Math.random() * currentPool.length)];
 
-            // Level 4: 50% chance of top or bottom
-            const origin: 'top' | 'bottom' = isL4 ? (Math.random() > 0.5 ? 'bottom' : 'top') : 'top';
+            // Level 4: 50% chance of top or bottom, BUT Level 5 reverts to top
+            const useL4Spawner = isL4 && !isLevel5;
+            const origin: 'top' | 'bottom' = useL4Spawner ? (Math.random() > 0.5 ? 'bottom' : 'top') : 'top';
 
             const newBall = {
                 id: Date.now().toString() + Math.random(),
@@ -198,6 +233,7 @@ export const GameScreen = () => {
                     paused={isPaused}
                     isLevel3={score >= LEVEL_THRESHOLDS.LEVEL_3 && score < (LEVEL_THRESHOLDS.LEVEL_4 || 70)}
                     paddleY={paddleY}
+                    isGhost={isLevel5}
                 />
             ))}
 
