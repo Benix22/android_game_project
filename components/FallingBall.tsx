@@ -15,14 +15,18 @@ interface FallingBallProps {
     id: string;
     color: string;
     speed: number;
-    onHit: (id: string, color: string) => void;
+    origin?: 'top' | 'bottom'; // New prop
+    onHit: (id: string, color: string, origin: 'top' | 'bottom') => void;
     gameHeight: number;
     paused?: boolean;
     isLevel3?: boolean;
+    paddleY: number;
 }
 
-export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, onHit, gameHeight, paused, isLevel3 }) => {
-    const translateY = useSharedValue(-GAME_CONFIG.BALL_SIZE);
+export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, origin = 'top', onHit, gameHeight, paused, isLevel3, paddleY }) => {
+    // Initial position depends on origin
+    const startPos = origin === 'top' ? -GAME_CONFIG.BALL_SIZE : gameHeight;
+    const translateY = useSharedValue(startPos);
 
     // Level 3 Logic
     const [currentBallColor, setCurrentBallColor] = React.useState(color);
@@ -32,13 +36,17 @@ export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, onHi
         () => translateY.value,
         (currentValue: number) => {
             if (isLevel3 && !hasSwitchedColor.value) {
-                // Determine target distance again (needs to match useEffect calc)
-                const targetDistance = GAME_CONFIG.PADDLE_Y_POS - (GAME_CONFIG.PADDLE_SIZE / 2) - GAME_CONFIG.BALL_SIZE;
-                const switchPoint = targetDistance * 0.5;
+                // Calculate percentage traveled
+                let start = origin === 'top' ? -GAME_CONFIG.BALL_SIZE : gameHeight;
+                let end = origin === 'top'
+                    ? paddleY - (GAME_CONFIG.PADDLE_SIZE / 2) - GAME_CONFIG.BALL_SIZE
+                    : paddleY + (GAME_CONFIG.PADDLE_SIZE / 2);
 
-                if (currentValue >= switchPoint) {
+                const totalDist = Math.abs(end - start);
+                const currentDist = Math.abs(currentValue - start);
+
+                if (currentDist >= totalDist * 0.25) {
                     hasSwitchedColor.value = true;
-                    // Switch color!
                     runOnJS(handleColorSwitch)();
                 }
             }
@@ -61,42 +69,43 @@ export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, onHi
             return;
         }
 
-        // Calculate duration based on distance and speed factor
-        // Collision point: When ball bottom touches paddle top
-        // Paddle Top = GAME_CONFIG.PADDLE_Y_POS - (GAME_CONFIG.PADDLE_SIZE / 2)
-        // Ball Bottom (relative to translate) = translateY + GAME_CONFIG.BALL_SIZE
-        // Target translateY = Paddle Top - GAME_CONFIG.BALL_SIZE
-        const targetDistance = GAME_CONFIG.PADDLE_Y_POS - (GAME_CONFIG.PADDLE_SIZE / 2) - GAME_CONFIG.BALL_SIZE;
-        const baseDuration = 3000;
-        const totalDuration = baseDuration / speed; // Time to travel full distance
+        // Calculate Target based on Origin and Paddle Y
+        let targetDistance = 0;
+        if (origin === 'top') {
+            // Falls down to Paddle Top
+            targetDistance = paddleY - (GAME_CONFIG.PADDLE_SIZE / 2) - GAME_CONFIG.BALL_SIZE;
+        } else {
+            // Falls UP to Paddle Bottom
+            targetDistance = paddleY + (GAME_CONFIG.PADDLE_SIZE / 2);
+        }
 
-        // Calculate remaining distance and duration
-        // logic: we want to maintain the same CONSTANT velocity.
-        // Velocity = TotalDistance / TotalDuration
-        // RemainingDuration = RemainingDistance / Velocity
+        const baseDuration = 3000;
+        const totalDuration = baseDuration / speed;
 
         const currentPos = translateY.value;
-        const remainingDistance = targetDistance - currentPos;
+        const remainingDistance = Math.abs(targetDistance - currentPos); // Distance is absolute
 
-        // Guard against already finished or weird states (though < 0 usually handled by hit check/cleanup)
+        // Velocity reference
+        const refDistance = gameHeight / 2;
+        const refVelocity = refDistance / (1500 / speed);
+
+        const duration = remainingDistance / refVelocity;
+
         if (remainingDistance <= 0) return;
-
-        const velocity = targetDistance / totalDuration;
-        const duration = remainingDistance / velocity;
 
         translateY.value = withTiming(targetDistance, {
             duration: duration,
             easing: Easing.linear
         }, (finished) => {
             if (finished) {
-                runOnJS(onHit)(id, currentBallColor);
+                runOnJS(onHit)(id, currentBallColor, origin);
             }
         });
 
         return () => {
             cancelAnimation(translateY);
         };
-    }, [speed, paused, currentBallColor]);
+    }, [speed, paused, currentBallColor, origin, paddleY, gameHeight]);
 
     const animatedStyle = useAnimatedStyle(() => {
         return {
