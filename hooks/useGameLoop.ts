@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { LEVEL_THRESHOLDS } from '../constants/GameConfig';
 
 export const useGameLoop = () => {
     const [isPlaying, setIsPlaying] = useState(false);

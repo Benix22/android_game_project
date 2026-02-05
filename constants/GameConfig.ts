@@ -5,19 +5,22 @@ const { width, height } = Dimensions.get('window');
 export const SCREEN_WIDTH = width;
 export const SCREEN_HEIGHT = height;
 
+// Configuration Flags
+const DEBUG_ENABLED = true;
+export const IS_DEBUG_MODE = DEBUG_ENABLED;
+
+// Level Thresholds
+export const LEVEL_THRESHOLDS = {
+    LEVEL_2: DEBUG_ENABLED ? 10 : 20,
+    LEVEL_3: DEBUG_ENABLED ? 25 : 50,
+};
+
 export const GAME_CONFIG = {
     PADDLE_SIZE: 120, // Diameter of the rotating paddle
     BALL_SIZE: 20,
     PADDLE_Y_POS: height - 150, // Y position of the paddle center
     SPAWN_INTERVAL: 1500, // Initial spawn rate in ms
     SPEED_INCREMENT: 0.1, // How much speed increases per score
-};
-
-export const IS_DEBUG_MODE = true;
-
-export const LEVEL_THRESHOLDS = {
-    LEVEL_2: IS_DEBUG_MODE ? 10 : 20,
-    LEVEL_3: IS_DEBUG_MODE ? 25 : 50,
 };
 
 export const COLORS = {

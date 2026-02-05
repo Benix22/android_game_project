@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ALL_COLORS, BASE_COLORS, COLORS, GAME_CONFIG, SCREEN_HEIGHT } from '../constants/GameConfig';
+import { ALL_COLORS, BASE_COLORS, COLORS, GAME_CONFIG, LEVEL_THRESHOLDS, SCREEN_HEIGHT } from '../constants/GameConfig';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { ColorPaddle } from './ColorPaddle';
 import { FallingBall } from './FallingBall';
