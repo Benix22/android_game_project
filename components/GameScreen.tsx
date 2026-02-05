@@ -1,3 +1,4 @@
+import { Audio } from 'expo-av';
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ALL_COLORS, BASE_COLORS, COLORS, GAME_CONFIG, LEVEL_THRESHOLDS, SCREEN_HEIGHT } from '../constants/GameConfig';
@@ -12,6 +13,31 @@ export const GameScreen = () => {
     const [isPaused, setIsPaused] = useState(false);
     const [levelText, setLevelText] = useState<string | null>(null);
     const [balls, setBalls] = useState<{ id: string; color: string; speed: number; origin: 'top' | 'bottom' }[]>([]);
+    const [sound, setSound] = useState<Audio.Sound>();
+    const [failSound, setFailSound] = useState<Audio.Sound>();
+
+    useEffect(() => {
+        async function loadSound() {
+            try {
+                const { sound: dropSound } = await Audio.Sound.createAsync(
+                    require('../assets/drop.mp3')
+                );
+                setSound(dropSound);
+
+                const { sound: failSnd } = await Audio.Sound.createAsync(
+                    require('../assets/fail.mp3')
+                );
+                setFailSound(failSnd);
+            } catch (e) {
+                console.log("Error loading sound", e);
+            }
+        }
+        loadSound();
+        return () => {
+            sound?.unloadAsync();
+            failSound?.unloadAsync();
+        };
+    }, []);
 
     const isHardMode = score >= LEVEL_THRESHOLDS.LEVEL_2;
     const isLevel4 = score >= (LEVEL_THRESHOLDS.LEVEL_4 || 70);
@@ -20,33 +46,11 @@ export const GameScreen = () => {
     // Paddle Position: Level 4 moves to center, but Level 5 returns to bottom
     const paddleY = (isLevel4 && !isLevel5) ? SCREEN_HEIGHT / 2 : GAME_CONFIG.PADDLE_Y_POS;
 
-    // ... (logic continues)
-
-    // In Spawner:
-    // const origin = (isLevel4 && !isLevel5) ? ...
-
-    // Use multiple chunks or replace relevant sections.
-    // I will replace the component body parts.
-
-
-    // Let's replace line 17-18 and Spawner and Render
-    // But replace_file_content is better for contiguous blocks.
-
-    // Chunk 1: Variables
-    // Chunk 2: Banner Logic
-    // Chunk 3: Spawner
-    // Chunk 4: Render
-
-    // Actually, I'll do this in multiple steps to be safe or use multi_replace.
-    // I'll use multi_replace.
-
-
     // Track score/mode in ref for interval closure
     const scoreRef = useRef(score);
     useEffect(() => { scoreRef.current = score; }, [score]);
 
     // Pause on Level Up (Switch to 4 colors at 20 points)
-    // Pause on Level Up (Switch to 4 colors at 20 points, Color Move at 50 points)
     useEffect(() => {
         if (score === LEVEL_THRESHOLDS.LEVEL_2) {
             setIsPaused(true);
@@ -128,9 +132,6 @@ export const GameScreen = () => {
         const intervalMs = GAME_CONFIG.SPAWN_INTERVAL / Math.sqrt(gameSpeed); // Spawn faster as speed increases
 
         const spawner = setInterval(() => {
-            // debug log
-            // console.log("Spawner check:", { score: scoreRef.current, L4: LEVEL_THRESHOLDS.LEVEL_4 });
-
             const isHard = scoreRef.current >= LEVEL_THRESHOLDS.LEVEL_2;
             const thresholdL4 = LEVEL_THRESHOLDS.LEVEL_4 || 70;
 
@@ -159,7 +160,7 @@ export const GameScreen = () => {
         }, intervalMs);
 
         return () => clearInterval(spawner);
-    }, [isPlaying, gameSpeed, isPaused]); // Intentionally omitting score to avoid interval reset jitter
+    }, [isPlaying, gameSpeed, isPaused]);
 
     // Ref strategy for rotation to keep callback stable-ish
     const rotationRef = useRef(paddleRotation);
@@ -172,7 +173,6 @@ export const GameScreen = () => {
         let activeColor = '';
         if (origin === 'top') {
             activeColor = getActiveColor(rotationRef.current);
-            console.log(`[Hit Check] Origin: Top, Rot: ${rotationRef.current}, Active: ${activeColor}, Ball: ${color}`);
         } else {
             // Bottom Ball logic
             const rot = rotationRef.current;
@@ -183,13 +183,19 @@ export const GameScreen = () => {
             else if (bottomIndex === 1) activeColor = COLORS.YELLOW;
             else if (bottomIndex === 2) activeColor = COLORS.GREEN;
             else activeColor = COLORS.BLUE;
-            console.log(`[Hit Check] Origin: Bottom, Rot: ${rot}, Active: ${activeColor}, Ball: ${color}`);
         }
 
         if (activeColor === color) {
             incrementScore();
+            // Play Sound
+            if (sound) {
+                sound.replayAsync().catch(e => console.log("Sound error", e));
+            }
         } else {
             console.log("!!! GAME OVER !!!");
+            if (failSound) {
+                failSound.replayAsync().catch(e => console.log("Fail sound error", e));
+            }
             endGame();
         }
 
@@ -205,8 +211,6 @@ export const GameScreen = () => {
             setLevelText(null);
         }, 2000); // 2 seconds for Level 1 banner
     };
-
-
 
     return (
         <TouchableOpacity activeOpacity={1} style={styles.container} onPress={handleTap}>
