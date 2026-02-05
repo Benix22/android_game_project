@@ -8,15 +8,27 @@ import { FallingBall } from './FallingBall';
 export const GameScreen = () => {
     const { isPlaying, isGameOver, score, gameSpeed, startGame, endGame, incrementScore } = useGameLoop();
     const [paddleRotation, setPaddleRotation] = useState(0); // 0, 1, 2, ...
+    const [isPaused, setIsPaused] = useState(false);
     const [balls, setBalls] = useState<{ id: string; color: string; speed: number }[]>([]);
 
     // Track score/mode in ref for interval closure
     const scoreRef = useRef(score);
     useEffect(() => { scoreRef.current = score; }, [score]);
 
+    // Pause on Level Up (Switch to 4 colors at 20 points)
+    useEffect(() => {
+        if (score === 20) {
+            setIsPaused(true);
+            const timer = setTimeout(() => {
+                setIsPaused(false);
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [score]);
+
     // Handle Rotation Tap
     const handleTap = () => {
-        if (!isPlaying) return;
+        if (!isPlaying || isPaused) return;
         setPaddleRotation(prev => prev + 1);
     };
 
@@ -44,8 +56,8 @@ export const GameScreen = () => {
 
     // Spawning Logic
     useEffect(() => {
-        if (!isPlaying) {
-            setBalls([]);
+        if (!isPlaying || isPaused) {
+            if (!isPaused) setBalls([]); // Only clear balls if NOT paused (i.e. game over/stopped)
             return;
         }
 
@@ -65,7 +77,7 @@ export const GameScreen = () => {
         }, intervalMs);
 
         return () => clearInterval(spawner);
-    }, [isPlaying, gameSpeed]); // Intentionally omitting score to avoid interval reset jitter
+    }, [isPlaying, gameSpeed, isPaused]); // Intentionally omitting score to avoid interval reset jitter
 
     // Ref strategy for rotation to keep callback stable-ish
     const rotationRef = useRef(paddleRotation);
@@ -110,6 +122,7 @@ export const GameScreen = () => {
                     speed={ball.speed}
                     onHit={onBallHit}
                     gameHeight={SCREEN_HEIGHT}
+                    paused={isPaused}
                 />
             ))}
 

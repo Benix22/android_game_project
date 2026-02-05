@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withTiming,
-    runOnJS,
     Easing,
-    cancelAnimation
+    cancelAnimation,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 import { GAME_CONFIG } from '../constants/GameConfig';
 
@@ -16,20 +16,38 @@ interface FallingBallProps {
     speed: number;
     onHit: (id: string, color: string) => void;
     gameHeight: number;
+    paused?: boolean;
 }
 
-export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, onHit, gameHeight }) => {
+export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, onHit, gameHeight, paused }) => {
     const translateY = useSharedValue(-GAME_CONFIG.BALL_SIZE);
 
     useEffect(() => {
-        // Calculate duration based on distance and speed factor
-        // Base speed: traversing screen in X seconds. 
-        // speed is a multiplier (1 = normal, 2 = 2x faster -> half time)
-        const distance = GAME_CONFIG.PADDLE_Y_POS + GAME_CONFIG.BALL_SIZE; // Target slightly below center of paddle
-        const baseDuration = 3000;
-        const duration = baseDuration / speed;
+        if (paused) {
+            cancelAnimation(translateY);
+            return;
+        }
 
-        translateY.value = withTiming(distance, {
+        // Calculate duration based on distance and speed factor
+        const targetDistance = GAME_CONFIG.PADDLE_Y_POS + GAME_CONFIG.BALL_SIZE;
+        const baseDuration = 3000;
+        const totalDuration = baseDuration / speed; // Time to travel full distance
+
+        // Calculate remaining distance and duration
+        // logic: we want to maintain the same CONSTANT velocity.
+        // Velocity = TotalDistance / TotalDuration
+        // RemainingDuration = RemainingDistance / Velocity
+
+        const currentPos = translateY.value;
+        const remainingDistance = targetDistance - currentPos;
+
+        // Guard against already finished or weird states (though < 0 usually handled by hit check/cleanup)
+        if (remainingDistance <= 0) return;
+
+        const velocity = targetDistance / totalDuration;
+        const duration = remainingDistance / velocity;
+
+        translateY.value = withTiming(targetDistance, {
             duration: duration,
             easing: Easing.linear
         }, (finished) => {
@@ -41,8 +59,7 @@ export const FallingBall: React.FC<FallingBallProps> = ({ id, color, speed, onHi
         return () => {
             cancelAnimation(translateY);
         };
-    }, [speed]); // Restart if speed changes? Ideally speed shouldn't change mid-fall for simplicity, but if it does, it resets. 
-    // TODO: Optimizing speed change mid-flight is complex, assuming speed stays const for a spawned ball.
+    }, [speed, paused]);
 
     const animatedStyle = useAnimatedStyle(() => {
         return {
