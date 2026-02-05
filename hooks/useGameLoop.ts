@@ -24,8 +24,8 @@ export const useGameLoop = () => {
 
             // Speed Logic
             setGameSpeed((prevSpeed) => {
-                // Hard Mode Reset: At 20 points, reset speed to base
-                if (newScore === 20) {
+                // Hard Mode / Level 3 Reset:
+                if (newScore === LEVEL_THRESHOLDS.LEVEL_2 || newScore === LEVEL_THRESHOLDS.LEVEL_3) {
                     return 1;
                 }
                 // Otherwise increment

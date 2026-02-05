@@ -4,11 +4,13 @@ import { ALL_COLORS, BASE_COLORS, COLORS, GAME_CONFIG, SCREEN_HEIGHT } from '../
 import { useGameLoop } from '../hooks/useGameLoop';
 import { ColorPaddle } from './ColorPaddle';
 import { FallingBall } from './FallingBall';
+import { LevelBanner } from './LevelBanner';
 
 export const GameScreen = () => {
     const { isPlaying, isGameOver, score, gameSpeed, startGame, endGame, incrementScore } = useGameLoop();
     const [paddleRotation, setPaddleRotation] = useState(0); // 0, 1, 2, ...
     const [isPaused, setIsPaused] = useState(false);
+    const [levelText, setLevelText] = useState<string | null>(null);
     const [balls, setBalls] = useState<{ id: string; color: string; speed: number }[]>([]);
 
     // Track score/mode in ref for interval closure
@@ -16,12 +18,24 @@ export const GameScreen = () => {
     useEffect(() => { scoreRef.current = score; }, [score]);
 
     // Pause on Level Up (Switch to 4 colors at 20 points)
+    // Pause on Level Up (Switch to 4 colors at 20 points, Color Move at 50 points)
     useEffect(() => {
-        if (score === 20) {
+        if (score === LEVEL_THRESHOLDS.LEVEL_2) {
             setIsPaused(true);
+            setLevelText("LEVEL 2");
             const timer = setTimeout(() => {
                 setIsPaused(false);
-            }, 1000);
+                setLevelText(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+        if (score === LEVEL_THRESHOLDS.LEVEL_3) {
+            setIsPaused(true);
+            setLevelText("LEVEL 3");
+            const timer = setTimeout(() => {
+                setIsPaused(false);
+                setLevelText(null);
+            }, 2000);
             return () => clearTimeout(timer);
         }
     }, [score]);
@@ -34,7 +48,7 @@ export const GameScreen = () => {
 
     // Determine active color at top based on rotation
     const getActiveColor = (rot: number) => {
-        const isHard = scoreRef.current >= 20;
+        const isHard = scoreRef.current >= LEVEL_THRESHOLDS.LEVEL_2;
 
         if (isHard) {
             // Hard Mode (4 Segments): Red, Blue, Green, Yellow (CW on Paddle)
@@ -64,7 +78,7 @@ export const GameScreen = () => {
         const intervalMs = GAME_CONFIG.SPAWN_INTERVAL / Math.sqrt(gameSpeed); // Spawn faster as speed increases
 
         const spawner = setInterval(() => {
-            const isHard = scoreRef.current >= 20;
+            const isHard = scoreRef.current >= LEVEL_THRESHOLDS.LEVEL_2;
             const currentPool = isHard ? ALL_COLORS : BASE_COLORS;
             const randomColor = currentPool[Math.floor(Math.random() * currentPool.length)];
 
@@ -99,7 +113,17 @@ export const GameScreen = () => {
         setBalls(prev => prev.filter(b => b.id !== id));
     };
 
-    const isHardMode = score >= 20;
+    const handleStartGame = () => {
+        startGame();
+        setIsPaused(true);
+        setLevelText("LEVEL 1");
+        setTimeout(() => {
+            setIsPaused(false);
+            setLevelText(null);
+        }, 2000); // 2 seconds for Level 1 banner
+    };
+
+    const isHardMode = score >= LEVEL_THRESHOLDS.LEVEL_2;
 
     return (
         <TouchableOpacity activeOpacity={1} style={styles.container} onPress={handleTap}>
@@ -123,8 +147,11 @@ export const GameScreen = () => {
                     onHit={onBallHit}
                     gameHeight={SCREEN_HEIGHT}
                     paused={isPaused}
+                    isLevel3={score >= LEVEL_THRESHOLDS.LEVEL_3}
                 />
             ))}
+
+            {levelText && <LevelBanner text={levelText} />}
 
             {/* Game Over / Start UI */}
             {!isPlaying && (
@@ -133,7 +160,7 @@ export const GameScreen = () => {
                     {isGameOver && <Text style={styles.gameOver}>GAME OVER</Text>}
                     {isGameOver && <Text style={styles.finalScore}>Score: {score}</Text>}
 
-                    <TouchableOpacity style={styles.btn} onPress={startGame}>
+                    <TouchableOpacity style={styles.btn} onPress={handleStartGame}>
                         <Text style={styles.btnText}>{isGameOver ? "RETRY" : "START"}</Text>
                     </TouchableOpacity>
                 </View>

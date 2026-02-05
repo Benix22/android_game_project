@@ -13,6 +13,13 @@ export const GAME_CONFIG = {
     SPEED_INCREMENT: 0.1, // How much speed increases per score
 };
 
+export const IS_DEBUG_MODE = true;
+
+export const LEVEL_THRESHOLDS = {
+    LEVEL_2: IS_DEBUG_MODE ? 10 : 20,
+    LEVEL_3: IS_DEBUG_MODE ? 25 : 50,
+};
+
 export const COLORS = {
     RED: '#FF5E5E',
     GREEN: '#00CC66',
