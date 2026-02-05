@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 export const useGameLoop = () => {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -19,9 +19,21 @@ export const useGameLoop = () => {
     }, []);
 
     const incrementScore = useCallback(() => {
-        setScore((prev) => prev + 1);
-        // Increase speed slightly with every point, capped at some sensible max if needed
-        setGameSpeed((prev) => Math.min(prev + 0.05, 5));
+        setScore((prev) => {
+            const newScore = prev + 1;
+
+            // Speed Logic
+            setGameSpeed((prevSpeed) => {
+                // Hard Mode Reset: At 20 points, reset speed to base
+                if (newScore === 20) {
+                    return 1;
+                }
+                // Otherwise increment
+                return Math.min(prevSpeed + 0.05, 5);
+            });
+
+            return newScore;
+        });
     }, []);
 
     return {

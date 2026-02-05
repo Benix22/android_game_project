@@ -17,7 +17,17 @@ export const COLORS = {
     RED: '#FF5E5E',
     GREEN: '#00CC66',
     BLUE: '#5599FF',
+    YELLOW: '#FFD700',
 };
 
-export type GameColor = typeof COLORS[keyof typeof COLORS]; // Value specific color type
-export const COLOR_ARRAY = [COLORS.RED, COLORS.GREEN, COLORS.BLUE] as const;
+export type GameColor = typeof COLORS[keyof typeof COLORS];
+
+// 3 Colors (Normal)
+export const BASE_COLORS = [COLORS.RED, COLORS.GREEN, COLORS.BLUE] as const;
+
+// 4 Colors (Hard) - Order matters for rotation logic
+// R -> B -> G -> Y (Clockwise check needed)
+export const ALL_COLORS = [COLORS.RED, COLORS.BLUE, COLORS.GREEN, COLORS.YELLOW] as const;
+
+// Default for initial load
+export const COLOR_ARRAY = BASE_COLORS;
