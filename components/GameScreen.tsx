@@ -10,6 +10,7 @@ import { LevelBanner } from './LevelBanner';
 export const GameScreen = () => {
     const { isPlaying, isGameOver, score, gameSpeed, startGame, endGame, incrementScore } = useGameLoop();
     const [paddleRotation, setPaddleRotation] = useState(0); // 0, 1, 2, ...
+    const [rotationDirection, setRotationDirection] = useState(1); // 1 for CW, -1 for CCW
     const [isPaused, setIsPaused] = useState(false);
     const [levelText, setLevelText] = useState<string | null>(null);
     const [balls, setBalls] = useState<{ id: string; color: string; speed: number; origin: 'top' | 'bottom' }[]>([]);
@@ -22,6 +23,8 @@ export const GameScreen = () => {
                 const { sound: dropSound } = await Audio.Sound.createAsync(
                     require('../assets/drop.mp3')
                 );
+                setSound(dropSound);
+
                 setSound(dropSound);
 
                 const { sound: failSnd } = await Audio.Sound.createAsync(
@@ -42,6 +45,7 @@ export const GameScreen = () => {
     const isHardMode = score >= LEVEL_THRESHOLDS.LEVEL_2;
     const isLevel4 = score >= (LEVEL_THRESHOLDS.LEVEL_4 || 70);
     const isLevel5 = score >= (LEVEL_THRESHOLDS.LEVEL_5 || 100);
+    const isLevel6 = score >= (LEVEL_THRESHOLDS.LEVEL_6 || 120);
 
     // Paddle Position: Level 4 moves to center, but Level 5 returns to bottom
     const paddleY = (isLevel4 && !isLevel5) ? SCREEN_HEIGHT / 2 : GAME_CONFIG.PADDLE_Y_POS;
@@ -92,12 +96,27 @@ export const GameScreen = () => {
             }, 2000);
             return () => clearTimeout(timer);
         }
+        if (score === LEVEL_THRESHOLDS.LEVEL_6) {
+            setIsPaused(true);
+            setIsPaused(true);
+            setBalls([]);
+            setLevelText("LEVEL 6");
+            setRotationDirection(-1); // Start inverted for Level 6
+            const timer = setTimeout(() => {
+                setIsPaused(false);
+                setLevelText(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
     }, [score]);
 
     // Handle Rotation Tap
     const handleTap = () => {
         if (!isPlaying || isPaused) return;
-        setPaddleRotation(prev => prev + 1);
+
+        // Level 6: Dynamic Rotation
+        // Use the state 'rotationDirection' which defaults to 1 and flips on score in Level 6
+        setPaddleRotation(prev => prev + rotationDirection);
     };
 
     // Determine active color at top based on rotation
@@ -107,7 +126,8 @@ export const GameScreen = () => {
         if (isHard) {
             // Hard Mode (4 Segments): Red, Blue, Green, Yellow (CW on Paddle)
             // Top Color Sequence (as paddle rotates CW): Red -> Yellow -> Green -> Blue
-            const index = rot % 4;
+            // Safe Mod for negative numbers (Mirror Mode)
+            const index = ((rot % 4) + 4) % 4;
             if (index === 0) return COLORS.RED;
             if (index === 1) return COLORS.YELLOW;
             if (index === 2) return COLORS.GREEN;
@@ -115,7 +135,7 @@ export const GameScreen = () => {
         } else {
             // Normal Mode (3 Segments): Red, Blue, Green (CW on Paddle)
             // Top Color Sequence: Red -> Blue -> Green
-            const index = rot % 3;
+            const index = ((rot % 3) + 3) % 3;
             if (index === 0) return COLORS.RED;
             if (index === 1) return COLORS.BLUE;
             return COLORS.GREEN;
@@ -176,7 +196,7 @@ export const GameScreen = () => {
         } else {
             // Bottom Ball logic
             const rot = rotationRef.current;
-            const topIndex = rot % 4;
+            const topIndex = ((rot % 4) + 4) % 4;
             const bottomIndex = (topIndex + 2) % 4;
 
             if (bottomIndex === 0) activeColor = COLORS.RED;
@@ -190,6 +210,11 @@ export const GameScreen = () => {
             // Play Sound
             if (sound) {
                 sound.replayAsync().catch(e => console.log("Sound error", e));
+            }
+
+            // Level 6: Dynamic Rotation Switch
+            if (score >= (LEVEL_THRESHOLDS.LEVEL_6 || 120)) {
+                setRotationDirection(prev => prev * -1);
             }
         } else {
             console.log("!!! GAME OVER !!!");
@@ -205,6 +230,7 @@ export const GameScreen = () => {
     const handleStartGame = () => {
         startGame();
         setIsPaused(true);
+        setRotationDirection(1); // Reset direction
         setLevelText("LEVEL 1");
         setTimeout(() => {
             setIsPaused(false);
@@ -237,7 +263,7 @@ export const GameScreen = () => {
                     paused={isPaused}
                     isLevel3={score >= LEVEL_THRESHOLDS.LEVEL_3 && score < (LEVEL_THRESHOLDS.LEVEL_4 || 70)}
                     paddleY={paddleY}
-                    isGhost={isLevel5}
+                    isGhost={isLevel5 && !isLevel6}
                 />
             ))}
 
